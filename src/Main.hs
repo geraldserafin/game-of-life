@@ -1,17 +1,24 @@
 module Main where
 
-import Graphics.Gloss (Point)
-import Quadtree (Quadtree (Empty), getPointsNeighbours, insert)
+import Quadtree (Quadtree (Empty), insert, nextGeneration, points)
+import Control.Monad.Random (MonadRandom(getRandomRs))
+import Graphics.Gloss (Display (InWindow), black, pictures, rectangleSolid, Picture (Color), white, translate, scale, simulate)
+import GHC.Float (int2Float)
 
-data Cell = Alive | Dead deriving (Eq, Show)
+display :: Display
+display = InWindow "Game of Life" (800,800) (100,100)
 
-aliveNeighbours :: Quadtree Cell -> [(Point, Cell, Int)]
-aliveNeighbours = map (\(a,b,c) -> (a,b, length $ filter (==Alive) c)) . getPointsNeighbours
+pointToFloat :: (Int, Int) -> (Float, Float)
+pointToFloat (x,y) = (int2Float x, int2Float y)
 
-insertAlive :: (Float, Float) -> Quadtree Cell -> Quadtree Cell
-insertAlive (x,y) t = foldl (\t' p -> insert p Dead t') (insert (x,y) Alive t) neighbourIndexes 
+generationAsPicture :: Quadtree -> Picture
+generationAsPicture = scale 4 4 . pictures . map cellPicture . points
   where 
-    neighbourIndexes = [(x',y') | x' <- [x-1..x+1], y' <- [y-1..y+1], (x',y') /= (x,y) ]
+    cellPicture (x,y) = translate x y . Color white $ rectangleSolid 1 1 
 
 main :: IO ()
-main = print . aliveNeighbours . insertAlive (0,0) $ Empty
+main = do
+  randomPoints <- getRandomRs ((-100,-100), (100,100))
+  let initialWorld = foldl insert Empty (map pointToFloat $ take 5000 randomPoints)
+
+  simulate display black 20 initialWorld generationAsPicture (\_ _ z -> nextGeneration z)
